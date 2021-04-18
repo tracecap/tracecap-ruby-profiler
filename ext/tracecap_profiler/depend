@@ -1,0 +1,8 @@
+
+$(OBJS): $(HDRS) $(ruby_headers)
+
+probes.h: $(srcdir)/probes.d
+	dtrace -o probes.h -h -s $(srcdir)/probes.d
+
+probes.o: $(srcdir)/probes.d
+	dtrace -o probes.o -G -s $(srcdir)/probes.d
