@@ -24,11 +24,68 @@ enum {
 static struct {
   int mode;
 
+  VALUE stack_written_frames[BUF_SIZE];
+  int stack_written_lines[BUF_SIZE];
+  char *stack_written_offsets[BUF_SIZE];
+  int stack_last_depth;
+  char stack[81920];
+
   VALUE frames_buffer[BUF_SIZE];
   int lines_buffer[BUF_SIZE];
 } _tracecap_data;
 
 static void profiler_switch_mode(int new_mode);
+
+static inline int tracecap_update_stack()
+{
+  int num;
+  int stack_left = sizeof(_tracecap_data.stack);
+
+  // read in the latest set of frames/lines
+  num = rb_profile_frames(0, sizeof(_tracecap_data.frames_buffer) / sizeof(VALUE), _tracecap_data.frames_buffer, _tracecap_data.lines_buffer);
+
+  // work out how many are the same as previously calculated
+  int same = 0;
+  char *stack_curr = _tracecap_data.stack;
+  for (int i = 0; i < num && i < _tracecap_data.stack_last_depth; i++) {
+    if (_tracecap_data.frames_buffer[num - 1 - i] == _tracecap_data.stack_written_frames[i] && _tracecap_data.lines_buffer[num - 1 - i] == _tracecap_data.stack_written_lines[i])
+      same++;
+    else
+      break;
+  }
+
+  if (same > 0) {
+    stack_curr = _tracecap_data.stack_written_offsets[same - 1];
+    stack_left = (int)(_tracecap_data.stack + sizeof(_tracecap_data.stack) - stack_curr);
+  }
+
+  int i;
+  for (i = same; i < num; i++) {
+    VALUE frame = _tracecap_data.frames_buffer[num - 1 - i];
+    int line = _tracecap_data.lines_buffer[num - 1 - i];
+
+    _tracecap_data.stack_written_frames[i] = frame;
+    _tracecap_data.stack_written_lines[i] = line;
+
+    VALUE name = rb_profile_frame_full_label(frame);
+    VALUE file = rb_profile_frame_path(frame);
+
+    if (stack_left > 0) {
+      int n = snprintf(stack_curr, stack_left, "%s:%d:%s\n", StringValueCStr(file), line, StringValueCStr(name));
+      stack_left -= n;
+      stack_curr += n;
+    } else {
+      break;
+    }
+
+    _tracecap_data.stack_written_offsets[i] = stack_curr;
+  }
+
+  *stack_curr = '\0';
+  _tracecap_data.stack_last_depth = i;
+
+  return (int)(stack_curr - _tracecap_data.stack);
+}
 
 static inline void tracecap_handle_tracing()
 {
@@ -37,28 +94,9 @@ static inline void tracecap_handle_tracing()
   static int traces = 0;
 
   if (TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_STD_ENABLED() || TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_FAST_ENABLED()) {
-    int num;
     struct ruby_sample sample = {};
-    char stack[81920];
-    int stack_left = sizeof(stack);
 
-    num = rb_profile_frames(0, sizeof(_tracecap_data.frames_buffer) / sizeof(VALUE), _tracecap_data.frames_buffer, _tracecap_data.lines_buffer);
-
-    char *stack_curr = stack;
-    for (int i = 0; i < num; i++) {
-      VALUE frame = _tracecap_data.frames_buffer[i];
-      VALUE name = rb_profile_frame_full_label(frame);
-      VALUE file = rb_profile_frame_path(frame);
-	    if (NIL_P(file))
-	      file = rb_profile_frame_path(frame);
-	    VALUE line = rb_profile_frame_first_lineno(frame);
-
-      if (stack_left > 0) {
-        int n = snprintf(stack_curr, stack_left, "%s:%d:%s\n", StringValueCStr(file), FIX2INT(line), StringValueCStr(name));
-        stack_left -= n;
-        stack_curr += n;
-      }
-    }
+    int stack_len = tracecap_update_stack();
 
     if (countedObjects == Qnil) {
       countedObjects = rb_hash_new();
@@ -74,13 +112,13 @@ static inline void tracecap_handle_tracing()
       // if we're configured for fast speed, output every 10, to match std speed.
       if (_tracecap_data.mode == TRACECAP_MODE_ENABLED_STANDARD ||
           (_tracecap_data.mode == TRACECAP_MODE_ENABLED_FAST && (traces % 10) == 0)) {
-        TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_STD(&sample, stack);
+        TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_STD(&sample, stack_len, _tracecap_data.stack);
       }
     }
 
     if (TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_FAST_ENABLED()) {
       expected_mode = TRACECAP_MODE_ENABLED_FAST;
-      TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_FAST(&sample, stack);
+      TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_FAST(&sample, stack_len, _tracecap_data.stack);
     }
   }
 
@@ -184,6 +222,7 @@ Init_tracecap_profiler(void) {
   VALUE tracecap_profiler;
 
   _tracecap_data.mode = TRACECAP_MODE_DISABLED;
+  _tracecap_data.stack_last_depth = 0;
 
   tracecap_profiler = rb_const_get(rb_cObject, rb_intern("TracecapProfiler"));
   rb_define_singleton_method(tracecap_profiler, "enable", profiler_enable, 0);

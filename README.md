@@ -27,8 +27,8 @@ TracecapProfiler::enable
 
 Once this is enabled, `tracecap_profiler` will poll for the usage of its tracepoints and then begin emitting them as needed. There are 2 speeds available - standard at 99Hz and fast at 999Hz. The current Ruby and userspace C backtraces can be traced directly with `dtrace`:
 ```
-$ sudo dtrace -n 'ruby-sample-std { trace(copyinstr(arg1)); ustack(); }'
-$ sudo dtrace -n 'ruby-sample-fast { trace(copyinstr(arg1)); ustack(); }'
+$ sudo dtrace -n 'ruby-sample-std { trace(copyinstr(arg2)); ustack(); }'
+$ sudo dtrace -n 'ruby-sample-fast { trace(copyinstr(arg2)); ustack(); }'
 ```
 
 ## Contributing
