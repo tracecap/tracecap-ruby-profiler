@@ -36,7 +36,7 @@ static inline void tracecap_handle_tracing()
   int expected_mode = TRACECAP_MODE_ENABLED_WATCHING;
   static int traces = 0;
 
-  if (TRACECAP_RUBY_RUBY_SAMPLE_STD_ENABLED() || TRACECAP_RUBY_RUBY_SAMPLE_FAST_ENABLED()) {
+  if (TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_STD_ENABLED() || TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_FAST_ENABLED()) {
     int num;
     struct ruby_sample sample = {};
     char stack[81920];
@@ -67,20 +67,20 @@ static inline void tracecap_handle_tracing()
     sample.object_space.total = rb_gc_stat(ID2SYM(rb_intern("heap_available_slots")));
     sample.object_space.free = rb_gc_stat(ID2SYM(rb_intern("heap_free_slots")));
 
-    if (TRACECAP_RUBY_RUBY_SAMPLE_STD_ENABLED()) {
+    if (TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_STD_ENABLED()) {
       expected_mode = TRACECAP_MODE_ENABLED_STANDARD;
 
       // if we're configured for standard speed, output every time.
       // if we're configured for fast speed, output every 10, to match std speed.
       if (_tracecap_data.mode == TRACECAP_MODE_ENABLED_STANDARD ||
           (_tracecap_data.mode == TRACECAP_MODE_ENABLED_FAST && (traces % 10) == 0)) {
-        TRACECAP_RUBY_RUBY_SAMPLE_STD(&sample, stack);
+        TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_STD(&sample, stack);
       }
     }
 
-    if (TRACECAP_RUBY_RUBY_SAMPLE_FAST_ENABLED()) {
+    if (TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_FAST_ENABLED()) {
       expected_mode = TRACECAP_MODE_ENABLED_FAST;
-      TRACECAP_RUBY_RUBY_SAMPLE_FAST(&sample, stack);
+      TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_FAST(&sample, stack);
     }
   }
 
