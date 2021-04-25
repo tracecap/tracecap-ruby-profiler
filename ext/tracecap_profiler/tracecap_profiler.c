@@ -36,7 +36,7 @@ static struct {
 
 static void profiler_switch_mode(int new_mode);
 
-static inline int tracecap_update_stack()
+static inline uint64_t tracecap_update_stack()
 {
   int num;
   int stack_left = sizeof(_tracecap_data.stack);
@@ -84,7 +84,7 @@ static inline int tracecap_update_stack()
   *stack_curr = '\0';
   _tracecap_data.stack_last_depth = i;
 
-  return (int)(stack_curr - _tracecap_data.stack);
+  return (uint64_t)(stack_curr - _tracecap_data.stack);
 }
 
 static inline void tracecap_handle_tracing()
@@ -96,7 +96,7 @@ static inline void tracecap_handle_tracing()
   if (TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_STD_ENABLED() || TRACECAP_RUBY_PROFILER_RUBY_SAMPLE_FAST_ENABLED()) {
     struct ruby_sample sample = {};
 
-    int stack_len = tracecap_update_stack();
+    uint64_t stack_len = tracecap_update_stack();
 
     if (countedObjects == Qnil) {
       countedObjects = rb_hash_new();
