@@ -87,12 +87,12 @@ static inline uint64_t tracecap_update_stack()
       char *inside_gem = strchr(gem_name_start, '/');
       if (inside_gem != NULL) {
         file_str = inside_gem + 1; // skip over '/'
-        snprintf(maybe_package, sizeof(maybe_package), "%.*s:", (int)(inside_gem - gem_name_start), gem_name_start);
+        snprintf(maybe_package, sizeof(maybe_package), "%.*s", (int)(inside_gem - gem_name_start), gem_name_start);
       }
     }
 
     if (stack_left > 0) {
-      int n = snprintf(stack_curr, stack_left, "%s%s:%d:%s\n", maybe_package, file_str, line, StringValueCStr(name));
+      int n = snprintf(stack_curr, stack_left, "%s:%s:%d:%s\n", maybe_package, file_str, line, StringValueCStr(name));
       stack_left -= n;
       stack_curr += n;
     } else {
